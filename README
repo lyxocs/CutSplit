@@ -1,0 +1,58 @@
+/*
+* Copyright (c) 2021 Peng Cheng Laboratory.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at:
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+/*-----------------------------------------------------------------------------
+ *  
+ *  Name:		 Tuple Space Assisted Packet Classification with High Performance on Both Search and Update[1]
+ *  Version:	 3.0 (release)
+ *  Author:		 Wenjun Li(Peng Cheng Laboratory, Email:wenjunli@pku.edu.cn)	 
+ *  Date:		 8/8/2021 
+ *  Note:		 version 3.0 was modified by Yuxi Liu (under the guidance of Wenjun Li), a graduate student from the Southern University of Science and Technology. The modified CutSplit can avoid previous faults and acheive faster classification performance.  
+ *  [1] wenjun Li, Tong Yang, Ori Rottenstreich, Xianfeng Li, Gaogang Xie, Hui Li, Balajee Vamanan, Dagang Li and Huiping Lin, “Tuple Space Assisted Packet Classification with High Performance on Both Search and Update,” In Special Issue on Network Softwarization & Enablers，IEEE Journal on Selected Areas in Communications (JSAC), 2020.
+ *-----------------------------------------------------------------------------
+ */
+
+
+CutTSS, Version 3.0  
+Tested on Ubuntu 16.04.4 LTS 
+
+Requirement:
+g++ at least version 4.9.
+/*To avoid segmentation fault, please change stack size to 81920 or larger, run "ulimit -s 81920"*/
+
+Installation: make
+How to run: ./main [options]
+
+Usage:
+./main [-b bucketSize][-t threshold(assume T_SA=T_DA)][-r ruleset][-e trace][-c (1:classification)][-u (1:update)]
+Try now:
+./main 
+or 
+./main -b 8 -t 20 -r ./ipc_1k -e ./ipc_1k_trace -c 1 -u 1 
+
+If you have any questions, feel free to contact with me.
+
+Wenjun Li
+Peng Cheng Laboratory
+wenjunli@pku.edu.cn
+2021.08.08
+
+
+
+
+
+ 
+
