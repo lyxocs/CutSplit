@@ -350,6 +350,18 @@ int main(int argc, char *argv[]) {
         number_rule = int(rule.size());
         printf("The number of rules = %d\n", number_rule);
         printf("**************** Construction ****************\n");
+//---HyperSplit---Construction---
+        printf("HyperSplit\n");
+        HyperSplit HS(threshold);
+        start = std::chrono::steady_clock::now();
+        HS.ConstructClassifier(rule);
+        end = std::chrono::steady_clock::now();
+        elapsed_milliseconds = end - start;
+        printf("\tConstruction time: %f ms\n", elapsed_milliseconds.count());
+        HS.prints();
+        printf("\tTotal memory consumption: %f(KB) \n", double(HS.MemSizeBytes()) / 1024);
+        printf("\tAverage memory consumption: %f Byte/rule \n", double(HS.MemSizeBytes()) / number_rule);
+
 //---CutTSS---Construction---
         printf("CutTSS\n");
         CutTSS CT(threshold, bucketSize, ratiotssleaf);
@@ -407,12 +419,39 @@ int main(int argc, char *argv[]) {
             printf("\tTotal packets (run %d times circularly): %d\n", trials, packets.size() * trials);
             int match_miss = 0;
 
-//---CutTSS---Classification---			
-            printf("CutTSS\n");
-            std::chrono::duration<double> sum_timeCS(0);
+//---HyperSplit---Classification---			
+            printf("HyperSplit\n");
+            std::chrono::duration<double> sum_timeHS(0);
             int match_pri = -2;
             int matchid[number_pkt];
             Packet p;
+            match_miss = 0;
+
+            for (int i = 0; i < trials; i++) {
+                start = std::chrono::steady_clock::now();
+                for (int j = 0; j < number_pkt; j++) {
+                    matchid[j] = number_rule - 1 - HS.ClassifyAPacket(packets[j]);
+                }
+                end = std::chrono::steady_clock::now();
+                elapsed_seconds = end - start;
+                sum_timeHS += elapsed_seconds;
+                for (int j = 0; j < number_pkt; j++) {
+                    if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
+                        match_miss++;
+                    }
+                }
+            }
+
+            printf("\t%d packets are classified, %d of them are misclassified\n", number_pkt * trials, match_miss);
+            printf("\tTotal classification time: %f s\n", sum_timeHS.count() / trials);
+            printf("\tAverage classification time: %f us\n",
+                   sum_timeHS.count() * 1e6 / double(trials * packets.size()));
+            printf("\tThroughput: %f Mpps\n", 1 / (sum_timeHS.count() * 1e6 / double(trials * packets.size())));
+
+//---CutTSS---Classification---			
+            printf("CutTSS\n");
+            std::chrono::duration<double> sum_timeCS(0);
+            match_pri = -2;
             match_miss = 0;
 
             for (int i = 0; i < trials; i++) {
