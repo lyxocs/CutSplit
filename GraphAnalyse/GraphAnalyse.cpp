@@ -208,7 +208,8 @@ void GraphAnalyse::ConstructClassifier(const vector<Rule> &rules) {
         CutTSSThreshold += to_string(maxHTreshold);
     }
 
-    CutTSSThreshold += "000000";
+    // CutTSSThreshold += "000000";
+    CutTSSThreshold = "0000000000";
 
     std::cout << "#Selected CutTSSThreshold:\t" << CutTSSThreshold << endl;
     if (methods == "CutTSS") {

@@ -61,8 +61,8 @@ void CutTSS::ConstructClassifier(const vector<Rule> &rules) {
         }
         printf("\n");
     }
-    statistics.resize(7, vector<int>(subset.size() - 1));
-    memory.resize(3, vector<double>(subset.size() - 1));
+    statistics.resize(7, vector<int>(subset.size()));
+    memory.resize(3, vector<double>(subset.size()));
     maxPri.resize(subset.size(), -1);
 
     for (int i = 0; i < subset.size(); i++) {
