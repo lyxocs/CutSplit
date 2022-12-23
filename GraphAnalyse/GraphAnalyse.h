@@ -6,7 +6,7 @@
 
 class GraphAnalyse: public PacketClassifier {
 public:
-    GraphAnalyse(string methods = "CutTSS");
+    GraphAnalyse(int bucketSize, int ratiotssleaf, string methods = "CutTSS");
     void ConstructClassifier(const std::vector<Rule> &rules);
     int ClassifyAPacket(const Packet &packet);
     int ClassifyAPacket(const Packet &packet, uint64_t &Query);
@@ -25,6 +25,8 @@ public:
 private:
     PacketClassifier *fun;
     std::string methods;
+    int bucketSize;
+    int rtssleaf;
 };
 
 #endif

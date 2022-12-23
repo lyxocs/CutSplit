@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
 
 //---GA-CutTSS---Construction---
         printf("\nGA-CutTSS\n");
-        GraphAnalyse GA_CT("CutTSS");
+        GraphAnalyse GA_CT(bucketSize, ratiotssleaf, "CutTSS");
         start = std::chrono::steady_clock::now();
         GA_CT.ConstructClassifier(rule); //construct classifier
         end = std::chrono::steady_clock::now();
@@ -428,7 +428,7 @@ int main(int argc, char *argv[]) {
 
 //---GA-CutSplit---Construction---
         printf("\nGA-CutSplit\n");
-        GraphAnalyse GA_CS("CutSplit");
+        GraphAnalyse GA_CS(bucketSize, ratiotssleaf, "CutSplit");
         start = std::chrono::steady_clock::now();
         GA_CS.ConstructClassifier(rule); //construct classifier
         end = std::chrono::steady_clock::now();
