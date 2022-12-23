@@ -15,19 +15,19 @@
 */
 
 /*-----------------------------------------------------------------------------
- *  
+ *
  *  Name:		 Tuple Space Assisted Packet Classification with High Performance on Both Search and Update[1]
  *  Version:	 3.0 (release)
- *  Author:		 Wenjun Li(Peng Cheng Laboratory, Email:wenjunli@pku.edu.cn)	 
- *  Date:		 8/8/2021 
- *  Note:		 version 3.0 was modified by Yuxi Liu (under the guidance of Wenjun Li), a graduate student from the Southern University of Science and Technology. The modified CutSplit can avoid previous faults and acheive faster classification performance.  
+ *  Author:		 Wenjun Li(Peng Cheng Laboratory, Email:wenjunli@pku.edu.cn)
+ *  Date:		 8/8/2021
+ *  Note:		 version 3.0 was modified by Yuxi Liu (under the guidance of Wenjun Li), a graduate student from the Southern University of Science and Technology. The modified CutSplit can avoid previous faults and acheive faster classification performance.
  *  [1] wenjun Li, Tong Yang, Ori Rottenstreich, Xianfeng Li, Gaogang Xie, Hui Li, Balajee Vamanan, Dagang Li and Huiping Lin, “Tuple Space Assisted Packet Classification with High Performance on Both Search and Update,” In Special Issue on Network Softwarization & Enablers，IEEE Journal on Selected Areas in Communications (JSAC), 2020.
  *-----------------------------------------------------------------------------
  */
 
 
-CutTSS, Version 3.0  
-Tested on Ubuntu 16.04.4 LTS 
+CutTSS, Version 3.0
+Tested on Ubuntu 16.04.4 LTS
 
 Requirement:
 g++ at least version 4.9.
@@ -39,9 +39,9 @@ How to run: ./main [options]
 Usage:
 ./main [-b bucketSize][-t threshold(assume T_SA=T_DA)][-r ruleset][-e trace][-c (1:classification)][-u (1:update)]
 Try now:
-./main 
-or 
-./main -b 8 -t 20 -r ./ipc_1k -e ./ipc_1k_trace -c 1 -u 1 
+./main
+or
+./main -b 8 -t 20 -r ./ipc_1k -e ./ipc_1k_trace -c 1 -u 1
 
 If you have any questions, feel free to contact with me.
 
@@ -54,5 +54,5 @@ wenjunli@pku.edu.cn
 
 
 
- 
+
 

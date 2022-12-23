@@ -55,6 +55,13 @@ typedef std::vector<Point> Packet;
 typedef uint32_t Memory;
 
 enum NodeType {Cuts, Linear, TSS};
+enum FIELD {
+    SIP = 0,
+    DIP,
+    SP,
+    DP,
+    PROTO
+};
 
 struct Rule {
     //Rule(){};

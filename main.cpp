@@ -15,14 +15,14 @@
 */
 
 /*-----------------------------------------------------------------------------
- *  
+ *
  *  Name:		 Tuple Space Assisted Packet Classification with High Performance on Both Search and Update[1]
  *  Description: Main function of CutTSS, as well as PSTSS[NSDI_2015], PartitionSort[ICNP_2016] and CutSplit[INFOCOM_2018]
  *  Version:	 3.0 (release)
- *  Author:		 Wenjun Li(Peng Cheng Laboratory, Email:wenjunli@pku.edu.cn)	 
+ *  Author:		 Wenjun Li(Peng Cheng Laboratory, Email:wenjunli@pku.edu.cn)
  *  Date:		 8/8/2021
- *  Note:		 version 3.0 was modified by Yuxi Liu (under the guidance of Wenjun Li), a graduate student from the Southern University of Science and Technology. The modified CutSplit can avoid previous faults and acheive faster classification performance.  
- *  [1] wenjun Li, Tong Yang, Ori Rottenstreich, Xianfeng Li, Gaogang Xie, Hui Li, Balajee Vamanan, Dagang Li and Huiping Lin, “Tuple Space Assisted Packet Classification with High Performance on Both Search and Update,” In Special Issue on Network Softwarization & Enablers，IEEE Journal on Selected Areas in Communications (JSAC), 2020. 
+ *  Note:		 version 3.0 was modified by Yuxi Liu (under the guidance of Wenjun Li), a graduate student from the Southern University of Science and Technology. The modified CutSplit can avoid previous faults and acheive faster classification performance.
+ *  [1] wenjun Li, Tong Yang, Ori Rottenstreich, Xianfeng Li, Gaogang Xie, Hui Li, Balajee Vamanan, Dagang Li and Huiping Lin, “Tuple Space Assisted Packet Classification with High Performance on Both Search and Update,” In Special Issue on Network Softwarization & Enablers，IEEE Journal on Selected Areas in Communications (JSAC), 2020.
  *-----------------------------------------------------------------------------*/
 
 #include <iostream>
@@ -39,17 +39,19 @@
 #include "ElementaryClasses.h"
 #include "HyperSplit/HyperSplit.h"
 #include "CutTSS/CutTSS.h"
+#include "GraphAnalyse/GraphAnalyse.h"
 
 using namespace std;
 
 FILE *fpr = fopen("./ipc_1k", "r");           // ruleset file
-FILE *fpt = fopen("./ipc_1k_trace", "r");           //  trace file 
-int classificationFlag = 1; //0:!run classification; 1:run classification 
+FILE *fpt = fopen("./ipc_1k_trace", "r");           //  trace file
+int classificationFlag = 1; //0:!run classification; 1:run classification
 int updateFlag = 1; //0:!run update; 1:run update (rand_update[MAXRULES]: ~half insert & half delete)
 
 int bucketSize = 8;   // leaf threashold
-int ratiotssleaf = 5; //Assume one TSS lookup takes 5 times than one rule linear search  
+int ratiotssleaf = 5; //Assume one TSS lookup takes 5 times than one rule linear search
 
+string Threshold = "1212000000";
 int threshold = 12;   // For simplity, assume T_SA=T_DA=threshold=20. These values can be chosen dynamicly by running different thresholds
 map<int, int> pri_id;  // rule id <--> rule priority
 int rand_update[MAXRULES]; //random generate rule id
@@ -59,7 +61,7 @@ int max_pri[4] = {-1, -1, -1, -1}; //the priority of partitioned subsets: priori
 
 
 
-/* 
+/*
  * ===  FUNCTION  ======================================================================
  *         Name:  loadrule(FILE *fp)
  *  Description:  load rules from rule file
@@ -212,7 +214,7 @@ vector<Rule> loadrule(FILE *fp) {
     return rule;
 }
 
-/* 
+/*
  * ===  FUNCTION  ======================================================================
  *         Name:  loadpacket(FILE *fp)
  *  Description:  load packets from trace file generated from ClassBench[INFOCOM2005]
@@ -253,7 +255,7 @@ std::vector<Packet> loadpacket(FILE *fp) {
     return packets;
 }
 
-/* 
+/*
  * ===  FUNCTION  ======================================================================
  *         Name:  parseargs(int argc, char *argv[])
  *  Description:  Parse arguments from the console
@@ -277,7 +279,7 @@ void parseargs(int argc, char *argv[]) {
             case 'e':  //trace packets for simulations
                 fpt = fopen(optarg, "r");
                 break;
-            case 'c':  //classification simulation				
+            case 'c':  //classification simulation
                 classificationFlag = atoi(optarg);
                 break;
             case 'u':  //update simulation
@@ -364,7 +366,8 @@ int main(int argc, char *argv[]) {
 
 //---CutTSS---Construction---
         printf("CutTSS\n");
-        CutTSS CT(threshold, bucketSize, ratiotssleaf);
+        CutTSS CT(Threshold, bucketSize, ratiotssleaf);
+        // CutTSS CT(threshold, bucketSize, ratiotssleaf);
         start = std::chrono::steady_clock::now();
         CT.ConstructClassifier(rule);
         end = std::chrono::steady_clock::now();
@@ -374,7 +377,7 @@ int main(int argc, char *argv[]) {
         printf("\tTotal memory consumption: %f(KB) \n", double(CT.MemSizeBytes()) / 1024);
         printf("\tAverage memory consumption: %f Byte/rule \n", double(CT.MemSizeBytes()) / number_rule);
 
-//---PSTSS---Construction---		
+//---PSTSS---Construction---
         printf("\nPSTSS\n");
         PriorityTupleSpaceSearch PSTSS;  //Priority Sorting Tuple Space Search (i.e., PSTSS)
         start = std::chrono::steady_clock::now();
@@ -400,7 +403,9 @@ int main(int argc, char *argv[]) {
 
 //---CutSplit---Construction---
         printf("\nCutSplit\n");
-        CutSplit CS(bucketSize, 12);
+        threshold = 32;
+        printf("threshold: %d\n", threshold);
+        CutSplit CS(bucketSize, threshold);
         start = std::chrono::steady_clock::now();
         CS.ConstructClassifier(rule); //construct classifier
         end = std::chrono::steady_clock::now();
@@ -409,6 +414,17 @@ int main(int argc, char *argv[]) {
         printf("\tConstruction time: %f ms\n", elapsed_milliseconds.count());
         printf("\tTotal memory consumption: %f(KB) \n", double(CS.MemSizeBytes()) / 1024);
         printf("\tAverage memory consumption: %f Byte/rule \n", double(CS.MemSizeBytes()) / number_rule);
+
+//---GA---Construction---
+        printf("\nGA\n");
+        GraphAnalyse GA("CutTSS");
+        start = std::chrono::steady_clock::now();
+        GA.ConstructClassifier(rule); //construct classifier
+        end = std::chrono::steady_clock::now();
+        elapsed_milliseconds = end - start;
+        printf("\tConstruction time: %f ms\n", elapsed_milliseconds.count());
+        printf("\tTotal memory consumption: %f(KB) \n", double(GA.MemSizeBytes()) / 1024);
+        printf("\tAverage memory consumption: %f Byte/rule \n", double(GA.MemSizeBytes()) / number_rule);
 
         if (classificationFlag != NULL) {
             printf("\n**************** Classification ****************\n");
@@ -419,7 +435,7 @@ int main(int argc, char *argv[]) {
             printf("\tTotal packets (run %d times circularly): %d\n", trials, packets.size() * trials);
             int match_miss = 0;
 
-//---HyperSplit---Classification---			
+//---HyperSplit---Classification---
             printf("HyperSplit\n");
             std::chrono::duration<double> sum_timeHS(0);
             int match_pri = -2;
@@ -448,7 +464,7 @@ int main(int argc, char *argv[]) {
                    sum_timeHS.count() * 1e6 / double(trials * packets.size()));
             printf("\tThroughput: %f Mpps\n", 1 / (sum_timeHS.count() * 1e6 / double(trials * packets.size())));
 
-//---CutTSS---Classification---			
+//---CutTSS---Classification---
             printf("CutTSS\n");
             std::chrono::duration<double> sum_timeCS(0);
             match_pri = -2;
@@ -556,7 +572,34 @@ int main(int argc, char *argv[]) {
             printf("\tAverage classification time: %f us\n",
                    sum_timecs.count() * 1e6 / double(trials * packets.size()));
             printf("\tThroughput: %f Mpps\n", 1 / (sum_timecs.count() * 1e6 / double(trials * packets.size())));
-        }
+
+//---GA-CutTSS---Classification---
+            printf("GA-CutTSS\n");
+            std::chrono::duration<double> sum_timeGACT(0);
+            match_miss = 0;
+            results.clear();
+            for (int t = 0; t < trials; t++) {
+                start = std::chrono::steady_clock::now();
+
+                for (auto const &p : packets) {
+                    results.push_back(number_rule - GA.ClassifyAPacket(p) - 1);
+//                    results.push_back(pri_id[CS.ClassifyAPacket(p)]);
+                }
+
+                end = std::chrono::steady_clock::now();
+                elapsed_seconds = end - start;
+                sum_timeGACT += elapsed_seconds;
+                for (int i = 0; i < number_pkt; i++)
+                    if ((results[i] == -1) || (packets[i][5] < results[i])) match_miss++;
+            }
+
+            printf("\t%d packets are classified, %d of them are misclassified\n", number_pkt * trials, match_miss);
+            printf("\tTotal classification time: %f s\n", sum_timeGACT.count() / trials);
+            printf("\tAverage classification time: %f us\n",
+                   sum_timeGACT.count() * 1e6 / double(trials * packets.size()));
+            printf("\tThroughput: %f Mpps\n", 1 / (sum_timeGACT.count() * 1e6 / double(trials * packets.size())));
+
+       }
 
 
         if (updateFlag == 1) {
@@ -569,7 +612,7 @@ int main(int argc, char *argv[]) {
             int number_update = min(number_rule, MAXRULES);
             printf("\tThe number of updated rules = %d\n", number_update);
 
-//---CutTSS---Update---			
+//---CutTSS---Update---
             printf("CutTSS\n");
             start = std::chrono::steady_clock::now();
             for (int ra = 0; ra < number_update; ra++) {
@@ -588,7 +631,7 @@ int main(int argc, char *argv[]) {
             printf("\tAverage update time: %f us\n", elapsed_seconds.count() * 1e6 / number_update);
             printf("\tAverage update throughput: %f MUPS\n", 1 / (elapsed_seconds.count() * 1e6 / number_update));
 
-//---PSTSS---Update---			
+//---PSTSS---Update---
             printf("PSTSS\n");
             insert_num = 0, delete_num = 0;
             start = std::chrono::steady_clock::now();
@@ -609,7 +652,7 @@ int main(int argc, char *argv[]) {
             printf("\tAverage update time: %f us\n", elapsed_seconds.count() * 1e6 / number_update);
             printf("\tAverage update throughput: %f MUPS\n", 1 / (elapsed_seconds.count() * 1e6 / number_update));
 
-//---PartitionSort---Update--			
+//---PartitionSort---Update--
             printf("PartitionSort\n");
             insert_num = 0, delete_num = 0;
             start = std::chrono::steady_clock::now();
@@ -638,5 +681,3 @@ int main(int argc, char *argv[]) {
     return 0;
 
 }
-
-
