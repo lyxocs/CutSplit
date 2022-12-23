@@ -209,7 +209,12 @@ void GraphAnalyse::ConstructClassifier(const vector<Rule> &rules) {
     CutTSSThreshold += "000000";
 
     std::cout << "#Selected CutTSSThreshold:\t" << CutTSSThreshold << endl;
-    this->fun = new CutTSS(CutTSSThreshold);      //invoke CutTSS's private *fun, passing parameters to CutTSS.
+    if (methods == "CutTSS") {
+        this->fun = new CutTSS(CutTSSThreshold);
+    } else {
+        this->fun = new CutSplit(CutTSSThreshold);
+    }
+    // this->fun = new CutTSS(CutTSSThreshold);      //invoke CutTSS's private *fun, passing parameters to CutTSS.
     this->fun->ConstructClassifier(rules);        //invoke CutTSS's private *fun, constructClassifier of CutTSS.
 }
 

@@ -415,16 +415,28 @@ int main(int argc, char *argv[]) {
         printf("\tTotal memory consumption: %f(KB) \n", double(CS.MemSizeBytes()) / 1024);
         printf("\tAverage memory consumption: %f Byte/rule \n", double(CS.MemSizeBytes()) / number_rule);
 
-//---GA---Construction---
-        printf("\nGA\n");
-        GraphAnalyse GA("CutTSS");
+//---GA-CutTSS---Construction---
+        printf("\nGA-CutTSS\n");
+        GraphAnalyse GA_CT("CutTSS");
         start = std::chrono::steady_clock::now();
-        GA.ConstructClassifier(rule); //construct classifier
+        GA_CT.ConstructClassifier(rule); //construct classifier
         end = std::chrono::steady_clock::now();
         elapsed_milliseconds = end - start;
         printf("\tConstruction time: %f ms\n", elapsed_milliseconds.count());
-        printf("\tTotal memory consumption: %f(KB) \n", double(GA.MemSizeBytes()) / 1024);
-        printf("\tAverage memory consumption: %f Byte/rule \n", double(GA.MemSizeBytes()) / number_rule);
+        printf("\tTotal memory consumption: %f(KB) \n", double(GA_CT.MemSizeBytes()) / 1024);
+        printf("\tAverage memory consumption: %f Byte/rule \n", double(GA_CT.MemSizeBytes()) / number_rule);
+
+//---GA-CutSplit---Construction---
+        printf("\nGA-CutSplit\n");
+        GraphAnalyse GA_CS("CutSplit");
+        start = std::chrono::steady_clock::now();
+        GA_CS.ConstructClassifier(rule); //construct classifier
+        end = std::chrono::steady_clock::now();
+        elapsed_milliseconds = end - start;
+        printf("\tConstruction time: %f ms\n", elapsed_milliseconds.count());
+        printf("\tTotal memory consumption: %f(KB) \n", double(GA_CS.MemSizeBytes()) / 1024);
+        printf("\tAverage memory consumption: %f Byte/rule \n", double(GA_CS.MemSizeBytes()) / number_rule);
+
 
         if (classificationFlag != NULL) {
             printf("\n**************** Classification ****************\n");
@@ -582,7 +594,7 @@ int main(int argc, char *argv[]) {
                 start = std::chrono::steady_clock::now();
 
                 for (auto const &p : packets) {
-                    results.push_back(number_rule - GA.ClassifyAPacket(p) - 1);
+                    results.push_back(number_rule - GA_CT.ClassifyAPacket(p) - 1);
 //                    results.push_back(pri_id[CS.ClassifyAPacket(p)]);
                 }
 
@@ -599,6 +611,31 @@ int main(int argc, char *argv[]) {
                    sum_timeGACT.count() * 1e6 / double(trials * packets.size()));
             printf("\tThroughput: %f Mpps\n", 1 / (sum_timeGACT.count() * 1e6 / double(trials * packets.size())));
 
+//---GA-CutSplit---Classification---
+            printf("GA-CutSplit\n");
+            std::chrono::duration<double> sum_timeGACS(0);
+            match_miss = 0;
+            results.clear();
+            for (int t = 0; t < trials; t++) {
+                start = std::chrono::steady_clock::now();
+
+                for (auto const &p : packets) {
+                    results.push_back(number_rule - GA_CS.ClassifyAPacket(p) - 1);
+//                    results.push_back(pri_id[CS.ClassifyAPacket(p)]);
+                }
+
+                end = std::chrono::steady_clock::now();
+                elapsed_seconds = end - start;
+                sum_timeGACS += elapsed_seconds;
+                for (int i = 0; i < number_pkt; i++)
+                    if ((results[i] == -1) || (packets[i][5] < results[i])) match_miss++;
+            }
+
+            printf("\t%d packets are classified, %d of them are misclassified\n", number_pkt * trials, match_miss);
+            printf("\tTotal classification time: %f s\n", sum_timeGACS.count() / trials);
+            printf("\tAverage classification time: %f us\n",
+                   sum_timeGACS.count() * 1e6 / double(trials * packets.size()));
+            printf("\tThroughput: %f Mpps\n", 1 / (sum_timeGACS.count() * 1e6 / double(trials * packets.size())));
        }
 
 

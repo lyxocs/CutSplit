@@ -54,7 +54,7 @@ typedef uint32_t Point;
 typedef std::vector<Point> Packet;
 typedef uint32_t Memory;
 
-enum NodeType {Cuts, Linear, TSS};
+enum NodeType {Cuts, Linear, TSS, HS};
 enum FIELD {
     SIP = 0,
     DIP,
