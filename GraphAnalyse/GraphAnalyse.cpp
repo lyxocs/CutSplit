@@ -212,13 +212,13 @@ void GraphAnalyse::ConstructClassifier(const vector<Rule> &rules) {
     CutTSSThreshold = "0000000000";
 
     std::cout << "#Selected CutTSSThreshold:\t" << CutTSSThreshold << endl;
-    if (methods == "CutTSS") {
-        this->fun = new CutTSS(CutTSSThreshold, bucketSize, rtssleaf);
-    } else {
-        this->fun = new CutSplit(CutTSSThreshold, bucketSize);
-    }
+    // if (methods == "CutTSS") {
+    //     this->fun = new CutTSS(CutTSSThreshold, bucketSize, rtssleaf);
+    // } else {
+    //     this->fun = new CutSplit(CutTSSThreshold, bucketSize);
+    // }
     // this->fun = new CutTSS(CutTSSThreshold);      //invoke CutTSS's private *fun, passing parameters to CutTSS.
-    this->fun->ConstructClassifier(rules);        //invoke CutTSS's private *fun, constructClassifier of CutTSS.
+    // this->fun->ConstructClassifier(rules);        //invoke CutTSS's private *fun, constructClassifier of CutTSS.
 }
 
 int GraphAnalyse::ClassifyAPacket(const Packet &packet) {

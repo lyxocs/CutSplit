@@ -55,6 +55,8 @@ map<int, int> pri_id;  // rule id <--> rule priority
 int rand_update[MAXRULES]; //random generate rule id
 int max_pri[4] = {-1, -1, -1, -1}; //the priority of partitioned subsets: priority sorting on subsets
 
+int SIP_Threshold = 0;
+int DIP_Threshold = 0;
 
 
 
@@ -263,7 +265,7 @@ std::vector<Packet> loadpacket(FILE *fp) {
 void parseargs(int argc, char *argv[]) {
     int c;
     bool ok = 1;
-    while ((c = getopt(argc, argv, "b:s:t:r:e:c:u:h")) != -1) {
+    while ((c = getopt(argc, argv, "b:s:d:t:r:e:c:u:h")) != -1) {
         switch (c) {
             case 'b':  //bucketsize1 of leaf node
                 bucketSize = atoi(optarg);
@@ -282,6 +284,12 @@ void parseargs(int argc, char *argv[]) {
                 break;
             case 'u':  //update simulation
                 updateFlag = atoi(optarg);
+                break;
+            case 's': // Sip Threshold
+                SIP_Threshold = atoi(optarg);
+                break;
+            case 'd':
+                DIP_Threshold = atoi(optarg);
                 break;
             case 'h': //help
                 printf("./main [-b bucketSize][-t threshold(assume T_SA=T_DA)][-r ruleset][-e trace][-c (1:classification)][-u (1:update)]\n");
@@ -333,6 +341,8 @@ int main(int argc, char *argv[]) {
     vector<Rule> rule;
     vector<Packet> packets;
     vector<int> results;
+    FILE *output = fopen("./result.csv", "a+");
+    fprintf(output, "%d,%d,", SIP_Threshold, DIP_Threshold);
 
     std::chrono::time_point<std::chrono::steady_clock> start, end;
     std::chrono::duration<double> elapsed_seconds;
@@ -342,42 +352,33 @@ int main(int argc, char *argv[]) {
     int number_rule = int(rule.size());
     packets = loadpacket(fpt);
     int number_pkt = packets.size();
-        
-//---CutTSS---Construction---
-    vector<vector<double>> CutTSSThroughputResult(33,vector<double>(33,0));
-    for (int SIP_Threshold = 0; SIP_Threshold <= 32; SIP_Threshold++){ 
-        for (int DIP_Threshold = 0; DIP_Threshold <= 32; DIP_Threshold++) {
-            CutTSS* CT = new CutTSS(SIP_Threshold, DIP_Threshold, bucketSize, ratiotssleaf);
-            CT->ConstructClassifier(rule);
-            const int trials = 100; //run 10 times circularly
-            int match_miss = 0;
+
+    CutTSS *CT = new CutTSS(SIP_Threshold, DIP_Threshold, bucketSize, ratiotssleaf);
+    CT->ConstructClassifier(rule);
+    const int trials = 100; // run 100 times curcularly;
+    int match_miss = 0;
 //---CutTSS---Classification---			
-            std::chrono::duration<double> sum_timeCS(0);
-            int match_pri = -2;
-            int matchid[number_pkt];
-            Packet p;
-            match_miss = 0;
-            for (int i = 0; i < trials; i++) {
-                start = std::chrono::steady_clock::now();
-                for (int j = 0; j < number_pkt; j++) {
-                    matchid[j] = number_rule - 1 - CT->ClassifyAPacket(packets[j]);
-                }
-                end = std::chrono::steady_clock::now();
-                elapsed_seconds = end - start;
-                sum_timeCS += elapsed_seconds;
-                for (int j = 0; j < number_pkt; j++) {
-                    if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
-                        match_miss++;
-                    }
-                }
-            }
-            CutTSSThroughputResult[SIP_Threshold][DIP_Threshold] = 1 / (sum_timeCS.count() * 1e6 / double(trials * packets.size()));
-            //printf("\tThroughput: %f Mpps\n", CutTSSThroughputResult[SIP_Treshold]);
-            printf("%f\t", CutTSSThroughputResult[SIP_Threshold][DIP_Threshold]);
-            delete CT;
+    std::chrono::duration<double> sum_timeCS(0);
+    int match_pri = -2;
+    int matchid[number_pkt];
+    Packet p;
+    match_miss = 0;
+    for (int i = 0; i < trials; i++) {
+        start = std::chrono::steady_clock::now();
+        for (int j = 0; j < number_pkt; j++) {
+            matchid[j] = number_rule - 1 - CT->ClassifyAPacket(packets[j]);
         }
-        cout << endl;          
+        end = std::chrono::steady_clock::now();
+        elapsed_seconds = end - start;
+        sum_timeCS += elapsed_seconds;
+        for (int j = 0; j < number_pkt; j++) {
+            if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
+                match_miss++;
+            }
+        }
     }
+    double CutTSSThroughputResult = 1 / (sum_timeCS.count() * 1e6 / double(trials * packets.size()));
+    fprintf(output, "%f\n", CutTSSThroughputResult);
     return 0;
 }
 
