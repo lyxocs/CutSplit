@@ -1,301 +1,296 @@
 #include "CutSplit.h"
 
-CutSplit::CutSplit(std::string threshold, int bucketSize) {
-    for (int i = 0; i < threshold.size(); i += 2) {
-        this->threshold.push_back(atoi(threshold.substr(i, 2).c_str()));
-    }
+CutSplit::CutSplit(int bucketSize, int threshold) {
     this->binth = bucketSize;
+    this->threshold = threshold;
     HSbig = nullptr;
-}
 
-CutSplit::CutSplit(int bucketSize,int threshold) {
-    this->threshold = { threshold, threshold, 0, 0, 0 };
-    // this->threshold = threshold;
-    this->binth = bucketSize;
-    HSbig = nullptr;
+    statistics.resize(7, vector<int>(3));
+    memory.resize(3, vector<double>(3));
 }
 
 void CutSplit::ConstructClassifier(const vector<Rule> &rules) {
-    this->rules = rules;
-    vector<pair<vector<Rule>, vector<int>>> subset = partition(threshold, ref(rules));
-    for (int i = 0; i < subset.size(); i++) {
-        printf("rule size: %d, threshold: ", subset[i].first.size());
-        for (auto num : subset[i].second) {
-            printf("%d ", num);
-        }
-        printf("\n");
+    vector<vector<int> > Thre(3);
+    Thre[0] = {threshold, threshold, -1, -1, -1};
+    Thre[1] = {threshold, -1, -1, -1, -1};
+    Thre[2] = {-1, threshold, -1, -1, -1};
+
+    subset = partition(Thre, rules);
+    nodeSet.resize(3, nullptr);
+    maxPri.resize(4, -1);
+    for(int i = 0; i < nodeSet.size(); i++) {
+        if(subset[i].empty()) continue;
+        statistics[numRules][i] = int(subset[i].size());
+        nodeSet[i] = ConstructCSTrie(subset[i], Thre[i], i);
+        maxPri[i] = subset[i][0].priority;
     }
-    statistics.resize(7, vector<int>(subset.size()));
-    memory.resize(3, vector<double>(subset.size()));
-    maxPri.resize(subset.size(), -1);
-
-    for (int i = 0; i < subset.size(); i++) {
-        statistics[numRules][i] = static_cast<int>(subset[i].first.size());
-        nodeSet.push_back(ConstructCSTrie(subset[i].first, subset[i].second, i));
-        maxPri[i] = subset[i].first[0].priority;
+    if(!subset.back().empty()) {
+        HSbig = new HyperSplit(binth);
+        HSbig->ConstructClassifier(subset.back());
+        maxPri.back() = subset.back()[0].priority;
     }
-}
-
-
-CutSplit::~CutSplit() {
-    nodeSet.clear();
 }
 
 int CutSplit::ClassifyAPacket(const Packet &packet) {
     int matchPri = -1;
     uint64_t Query = 0;
-    for (int i = nodeSet.size() - 1; i >= 0; i--) {
-        if (matchPri < maxPri[i]) {
-            matchPri = max(matchPri, trieLookup(packet, nodeSet[i], ref(Query)));
-        }
-    }
+    if(nodeSet[0]) matchPri = trieLookup(packet, nodeSet[0], 3, Query);
+    if(nodeSet[1] && maxPri[1] > matchPri) matchPri = max(matchPri, trieLookup(packet, nodeSet[1], 1, Query));
+    if(nodeSet[2] && maxPri[2] > matchPri) matchPri = max(matchPri, trieLookup(packet, nodeSet[2], 2, Query));
+    if(HSbig && maxPri[3] > matchPri) matchPri = max(matchPri, HSbig->ClassifyAPacket(packet, Query));
+    QueryUpdate(Query);
     return matchPri;
 }
 
 int CutSplit::ClassifyAPacket(const Packet &packet, uint64_t &Query) {
     int matchPri = -1;
-    for (int i = nodeSet.size() - 1; i >= 0; i--) {
-        if (matchPri < maxPri[i]) {
-            matchPri = max(matchPri, trieLookup(packet, nodeSet[i], ref(Query)));
-        }
-    }
+    if(nodeSet[0]) matchPri = trieLookup(packet, nodeSet[0], 3, Query);
+    if(nodeSet[1] && maxPri[1] > matchPri) matchPri = trieLookup(packet, nodeSet[1], 1, Query);
+    if(nodeSet[2] && maxPri[2] > matchPri) matchPri = trieLookup(packet, nodeSet[2], 2, Query);
+    if(HSbig && maxPri[3] > matchPri) matchPri = HSbig->ClassifyAPacket(packet, Query);
+    QueryUpdate(Query);
     return matchPri;
 }
 
-void CutSplit::DeleteRule(const Rule &delete_rule) {
-    uint32_t loc = 0;
-    for (int i = 0; i < threshold.size(); i++) {
-        loc <<= 1;
-        if (delete_rule.prefix_length[i] >= threshold[i]) {
-            loc++;
-        }
-    }
-    trieDelete(delete_rule, nodeSet[assignments[loc]]);
+void CutSplit::DeleteRule(const Rule &rule) {
+
 }
 
-void CutSplit::InsertRule(const Rule &insert_rule) {
-    uint32_t loc = 0;
-    for (int i = 0; i < threshold.size(); i++) {
-        loc <<= 1;
-        if (insert_rule.prefix_length[i] >= threshold[i]) {
-            loc++;
-        }
-    }
-    trieInsert(insert_rule, nodeSet[assignments[loc]]);
+void CutSplit::InsertRule(const Rule &rule) {
+
 }
 
 Memory CutSplit::MemSizeBytes() const {
     uint32_t totMemory = 0;
-    for (int i = 0; i < nodeSet.size(); i++) {
+    for(int i = 0; i < nodeSet.size(); i++) {
         totMemory += uint32_t(memory[totMem][i]);
     }
-    if (HSbig) {
+    if(HSbig) {
         totMemory += HSbig->MemSizeBytes();
     }
     return totMemory;
 }
 
-vector<pair<vector<Rule>, vector<int>>> CutSplit::partition(vector<int> threshold, const vector<Rule> &rules) {
-    const int ARRAY_SIZE = 1 << threshold.size();
 
-    vector<pair<vector<Rule>, vector<int>>> ret;
-    vector<vector<Rule>> subRules(ARRAY_SIZE);
-    for (const Rule &rule : rules) {
-        int loc = 0;
-        for (int dim = threshold.size() - 1; dim >= 0; dim--) {
-            loc <<= 1;
-            if (rule.prefix_length[dim] >= threshold[dim]) {
-                loc++;
-            }
-        }
-        subRules[loc].push_back(rule);
+CutSplitNode *CutSplit::ConstructCSTrie(const vector<Rule> &rules, const vector<int>& dims, int k) {
+
+    int maxCuts = 0;
+    for(int d : dims) {
+        if(d != -1) maxCuts ++;
+    }
+    maxCuts = maxCuts == 1 ? 64 : 8;
+    vector<vector<unsigned int> > field(MAXDIMENSIONS, vector<unsigned int>(2));
+    for(int dim = 0; dim < MAXDIMENSIONS; dim++){
+        field[dim][HighDim] = (uint64_t(1) << MaxMask[dim]) - 1;
     }
 
-    int cnt = 0;
-    for (int i = 0; i < ARRAY_SIZE; i++) {
-        if (!subRules[i].empty()) {
-            vector<int> tmp;
-            int t = i;
-            for (int dim = 0; dim < threshold.size(); dim++) {
-                if ((1 << dim) & i) {
-                    tmp.push_back(threshold[dim]);
-                } else {
-                    tmp.push_back(0);
-                }
-            }
-            ret.push_back({ subRules[i], tmp });
-            assignments[i] = cnt++;
-        }
-    }
+    auto *root = new CutSplitNode(rules,field, 0, false, Cuts);
+    statistics[totArray][k] ++;
 
-    return ret;
-}
-
-CutSplitNode* CutSplit::ConstructCSTrie(const vector<Rule> &rules, const vector<int> &dims, int k) {
-    vector<int> left(dims.size());
-
-    CutSplitNode *root = new CutSplitNode(rules, left, 0, false, Cuts);
-    statistics[totArray][k]++;
-
-    queue<CutSplitNode *> qNode;
+    queue<CutSplitNode*> qNode;
     qNode.push(root);
-    while (!qNode.empty()) {
-        auto *node = qNode.front();
+    while(!qNode.empty()) {
+        CutSplitNode *node = qNode.front();
         qNode.pop();
-        if (node->nrules <= binth) {
+        if(node->nrules <= binth) { // Linear leaf node
             node->isLeaf = true;
             node->nodeType = Linear;
-
             statistics[totLeafRules][k] += node->nrules;
-            statistics[totLeafNode][k]++;
+            statistics[totLeaNode][k] ++;
             statistics[worstLevel][k] = max(statistics[worstLevel][k], node->depth);
             continue;
         }
 
-        int cutDim = -1;
-        int cutBits = -1;
-        for (int i = 0; i < dims.size(); i++) {
-            if (node->left[i] < dims[i]) {
-                cutDim = i;
-                cutBits = min(6, dims[i] - node->left[i]);
-                break;
+        CalcCutsn(node, dims);
+        int totCuts = 1;
+        for(int dim = 0; dim < MAXDIMENSIONS; dim++) {
+            if(dims[dim] != -1 && node->ncuts[dim] < maxCuts) {
+                node->nodeType = TSS;
             }
+            totCuts *= node->ncuts[dim];
         }
+        node->children.resize(totCuts, nullptr);
+        statistics[totArray][k] += totCuts;
 
-        // printf("rule size: %d\n", node->nrules);
-        // printf("cutDim: %d\tcutBits:%d\n", cutDim, cutBits);
+        vector<unsigned int> r(MAXDIMENSIONS), i(MAXDIMENSIONS);
+        if(node->nodeType == Cuts) {
+            statistics[totNonLeafNode][k] ++;
 
-        // Cuts
-        if (cutDim != -1) {
-            node->cutDim = cutDim;
-            node->andbit = (1 << cutBits) - 1;
-            node->numbit = maxMask[cutDim] - node->left[cutDim] - cutBits;
+            int index = 0;
 
-            statistics[totNonLeafNode][k]++;
+            r[0] = (node->field[0][HighDim] - node->field[0][LowDim]) / node->ncuts[0];
+            field[0][LowDim] = node->field[0][LowDim];
+            field[0][HighDim] = field[0][LowDim] + r[0];
+            for(i[0] = 0; i[0] < node->ncuts[0]; i[0]++) {  //sip
 
-            vector<vector<Rule>> subRules(1 << cutBits);
-            const int MOD = (1 << cutBits) - 1;
+                r[1] = (node->field[1][HighDim] - node->field[1][LowDim]) / node->ncuts[1];
+                field[1][LowDim] = node->field[1][LowDim];
+                field[1][HighDim] = field[1][LowDim] + r[1];
+                for(i[1] = 0; i[1] < node->ncuts[1]; i[1]++) {  //dip
 
-            vector<int> childLeft = node->left;
-            childLeft[cutDim] += cutBits;
-            for (Rule &rule : node->classifier) {
-                uint32_t Key = rule.range[cutDim][LowDim] >> (maxMask[cutDim] - cutBits - node->left[cutDim]);
-                // LOG_INFO("range:%d, offset: %d\n", rule.range[cutDim][LowDim], (maxMask[cutDim] - cutBits - node->left[cutDim]));
-                subRules[Key & MOD].push_back(rule);
-            }
+                    r[2] = (node->field[2][HighDim] - node->field[2][LowDim]) / node->ncuts[2];
+                    field[2][LowDim] = node->field[2][LowDim];
+                    field[2][HighDim] = field[2][LowDim] + r[2];
+                    for(i[2] = 0; i[2] < node->ncuts[2]; i[2] ++) {
 
-            node->children.resize(subRules.size());
-            for (int i = 0; i < subRules.size(); i++) {
-                if (!subRules[i].empty()) {
-                    node->children[i] = new CutSplitNode(subRules[i], childLeft, node->depth + 1, false, Cuts);
-                    qNode.push(node->children[i]);
+                        r[3] = (node->field[3][HighDim] - node->field[3][LowDim]) / node->ncuts[3];
+                        field[3][LowDim] = node->field[3][LowDim];
+                        field[3][HighDim] = field[3][LowDim] + r[3];
+                        for(i[3] = 0; i[3] < node->ncuts[3]; i[3] ++) {
+
+                            r[4] = (node->field[4][HighDim] - node->field[4][LowDim]) / node->ncuts[4];
+                            field[4][LowDim] = node->field[4][LowDim];
+                            field[4][HighDim] = field[4][LowDim] + r[4];
+                            for(i[4] = 0; i[4] < node->ncuts[4]; i[4] ++) {
+
+                                vector<Rule> subRule;
+                                for(const Rule &rule : node->rules) {
+                                    bool flag = true;
+                                    for(int t = 0; t < MAXDIMENSIONS; t++){
+                                        if(rule.range[t][LowDim] > field[t][HighDim] || rule.range[t][HighDim] < field[t][LowDim]) {
+                                            flag = false;
+                                            break;
+                                        }
+                                    }
+
+                                    if(flag){
+                                        subRule.push_back(rule);
+                                    }
+                                }
+                                if(!subRule.empty()) {
+                                    node->children[index] = new CutSplitNode(subRule, field, node->depth + 1, false, Cuts);
+                                    qNode.push(node->children[index]);
+                                }
+                                index++;
+
+                                field[4][LowDim] = field[4][HighDim] + 1;
+                                field[4][HighDim] = field[4][LowDim] + r[4];
+                            }
+                            field[3][LowDim] = field[3][HighDim] + 1;
+                            field[3][HighDim] = field[3][LowDim] + r[3];
+                        }
+                        field[2][LowDim] = field[2][HighDim] + 1;
+                        field[2][HighDim] = field[2][LowDim] + r[2];
+                    }
+                    field[1][LowDim] = field[1][HighDim] + 1;
+                    field[1][HighDim] = field[1][LowDim] + r[1];
                 }
+                field[0][LowDim] = field[0][HighDim] + 1;
+                field[0][HighDim] = field[0][LowDim] + r[0];
             }
-        } else { // HyperSplit
-            node->isLeaf = true;
+//            node->rules.clear();
+        } else {    // HyperSplit stage
             node->HSnode = new HyperSplit(binth);
-            node->HSnode->ConstructClassifier(node->classifier);
-            node->nodeType = HS;
+            node->HSnode->ConstructClassifier(node->rules);
+            node->isLeaf = true;
+
             memory[totTSSMem][k] += node->HSnode->MemSizeBytes();
             statistics[totTSSNode][k] ++;
+//            node->rules.clear();
         }
+
     }
     return root;
 }
 
-int CutSplit::trieLookup(const Packet &packet, CutSplitNode *root, uint64_t &Query) {
-    int matchPri = -1;
-    CutSplitNode *node = root;
-    while (node && !node->isLeaf) {
-        uint32_t key = (packet[node->cutDim] >> node->numbit) & node->andbit;
-        node = node->children[key];
-        Query++;
+void CutSplit::CalcCutsn(CutSplitNode *node, const vector<int>& dims) const {
+    int maxCuts = 0;
+    for(int d : dims) {
+        if(d != -1) maxCuts ++;
     }
-    if (!node) {
-        return -1;
-    }
-    if (node->nodeType == HS) {
-        return node->HSnode->ClassifyAPacket(packet);
-    } else {
-        for (const Rule &rule : node->classifier) {
-            Query++;
-            if (rule.MatchesPacket(packet)) {
-                return rule.priority;
-            }
-        }
-    }
-    return -1;
-}
+    maxCuts = maxCuts == 1 ? 64 : 8;
 
-void CutSplit::trieDelete(const Rule &delete_rule, CutSplitNode *root) {
-
-}
-
-void CutSplit::trieInsert(const Rule &insert_rule, CutSplitNode *root) {
-
-}
-
-size_t CutSplit::NumTables() const {
-    return nodeSet.size();
-}
-
-void CutSplit::FindRule(const Rule r) {
-    uint32_t loc = 0;
-    for (int i = 0; i < threshold.size(); i++) {
-        loc <<= 1;
-        if (r.prefix_length[i] >= threshold[i]) {
-            loc++;
-        }
-    }
-    printf("Tree: %d <---> %d\n", loc, assignments[loc]);
-    CutSplitNode *node = nodeSet[assignments[loc]];
-    while (node && !node->isLeaf) {
-        uint32_t key = (r.range[node->cutDim][LowDim] >> node->numbit) & node->andbit;
-        printf("key: %d %d %d %d\n", node->cutDim, node->numbit, node->andbit, key);
-        node = node->children[key];
-    }
-
-    if (!node) {
-        printf("node not exist!\n");
-    } else if (node->nodeType == HS) {
-        printf("HS node!\n");
-    } else {
-        printf("Linear node!\n");
-    }
-}
-
-void CutSplit::FindPacket(const Packet p) {
-    int matchPri = -1;
-    for (int i = 0; i < nodeSet.size(); i++) {
-        printf("Tree #%d:\n", i);
-        int tmpPri = -1;
-        if (matchPri < maxPri[i]) {
-            auto *node = nodeSet[i];
-            while (node && !node->isLeaf) {
-                uint32_t key = (p[node->cutDim] >> node->numbit) & node->andbit;
-                printf("key: %d %d %d %d\n", node->cutDim, node->numbit, node->andbit, key);
-                node = node->children[key];
-            }
-            if (!node) {
-                printf("not exists!\n");
-            } else if (node->nodeType == HS) {
-                printf("HS\n");
-                tmpPri = node->HSnode->ClassifyAPacket(p);
-            } else {
-                printf("Linear\n");
-                for (const Rule &rule : node->classifier) {
-                    if (rule.MatchesPacket(p)) {
-                        tmpPri = rule.priority;
-                    }
+    for(int dim = 0; dim < MAXDIMENSIONS; dim++) {
+        node->ncuts[dim] = 1;
+        if(dims[dim] != -1) {
+            while(true) {
+                if(node->ncuts[dim] < maxCuts && (node->field[dim][HighDim] - node->field[dim][LowDim]) > pow(2, MaxMask[dim] - threshold)) {
+                    node->ncuts[dim] <<= 1;
+                } else {
+                    break;
                 }
             }
         }
-        printf("Pri: %d --- %d\n", tmpPri, matchPri);
-        matchPri = max(tmpPri, matchPri);
     }
 }
 
-size_t CutSplit::RulesInTable(size_t tableIndex) const {
-    return 0;
+int CutSplit::trieLookup(const Packet &packet, CutSplitNode *root, int speedUpFlag, uint64_t &Query) {
+    int matchPri = -1;
+    CutSplitNode* node = root;
+    unsigned int numbit = 32;
+    unsigned int cchild;
+
+    switch (speedUpFlag) {
+        case 1: {
+            while(node && !node->isLeaf) {
+                numbit -= MAXCUTBITS1;
+                cchild = (packet[0] >> numbit) & ANDBITS1;
+                node = node->children[cchild];
+                Query++;
+            }
+            break;
+        }
+        case 2: {
+            while (node && !node->isLeaf) {
+                numbit -= MAXCUTBITS1;
+                cchild = (packet[1] >> numbit) & ANDBITS1;
+                node = node->children[cchild];
+                Query++;
+            }
+            break;
+        }
+        case 3: {
+            while(node && !node->isLeaf) {
+                numbit -= MAXCUTBITS2;
+                cchild = ((packet[0] >> numbit) & ANDBITS2) * node->ncuts[1] + ((packet[1] >> numbit) & ANDBITS2);
+                node = node->children[cchild];
+                Query++;
+            }
+        }
+        default:
+            break;
+    }
+    if(!node) {
+        return -1;
+    }
+    if(node->nodeType == TSS) {
+        matchPri = node->HSnode->ClassifyAPacket(packet, Query);
+    } else {
+        for(const Rule &rule : node->rules) {
+            Query++;
+            if(rule.MatchesPacket(packet)) {
+                matchPri = rule.priority;
+                break;
+            }
+        }
+    }
+
+    return matchPri;
 }
 
+vector<vector<Rule> > CutSplit::partition(vector<vector<int> > threshold, const vector<Rule>& rules) {
+    int n = int(threshold.size());
+    std::vector<std::vector<Rule> > subset(n + 1);
+    for (const Rule &rule : rules) {
+        bool flag = false;
+        for(int i = 0; i < n; i++) {
+            bool insertFlag = true;
+            for (int dim = 0; dim < MAXDIMENSIONS; dim++) {
+                if(threshold[i][dim] == -1) continue;
+                if(rule.prefix_length[dim] < threshold[i][dim]) {
+                    insertFlag = false;
+                    break;
+                }
+            }
+            if(insertFlag) {
+                subset[i].push_back(rule);
+                flag = true;
+                break;
+            }
+        }
+        if(!flag) {
+            subset.back().push_back(rule);
+        }
+    }
+    return subset;
+}
