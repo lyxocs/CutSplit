@@ -299,7 +299,8 @@ CutTSSNode* CutTSS::ConstructCutTSSTrie(const vector<Rule> &rules, const vector<
             statistics[worstLevel][k] = max(statistics[worstLevel][k], node->depth);
             } else {
                 node->nodeType = TSS;
-                node->PSTSS = new PriorityTupleSpaceSearch();
+                // node->PSTSS = new PriorityTupleSpaceSearch();
+                node->PSTSS = new HiCuts(16, 8, 4.0);
                 node->PSTSS->ConstructClassifier(node->classifier);
                 memory[totTSSMem][k] += node->PSTSS->MemSizeBytes();
 

@@ -354,8 +354,8 @@ int main(int argc, char *argv[]) {
     packets = loadpacket(fpt);
     int number_pkt = packets.size();
 
-    // CutTSS *CT = new CutTSS(SIP_Threshold, DIP_Threshold, bucketSize, ratiotssleaf);
-    // CT->ConstructClassifier(rule);
+    CutTSS *CT = new CutTSS(SIP_Threshold, DIP_Threshold, bucketSize, ratiotssleaf);
+    CT->ConstructClassifier(rule);
     const int trials = 100; // run 100 times curcularly;
     int match_miss = 0;
 //---CutTSS---Classification---			
@@ -364,49 +364,51 @@ int main(int argc, char *argv[]) {
     int matchid[number_pkt];
     Packet p;
     match_miss = 0;
-    // for (int i = 0; i < trials; i++) {
-    //     start = std::chrono::steady_clock::now();
-    //     for (int j = 0; j < number_pkt; j++) {
-    //         matchid[j] = number_rule - 1 - CT->ClassifyAPacket(packets[j]);
-    //     }
-    //     end = std::chrono::steady_clock::now();
-    //     elapsed_seconds = end - start;
-    //     sum_timeCS += elapsed_seconds;
-    //     for (int j = 0; j < number_pkt; j++) {
-    //         if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
-    //             match_miss++;
-    //         }
-    //     }
-    // }
-    // double CutTSSThroughputResult = 1 / (sum_timeCS.count() * 1e6 / double(trials * packets.size()));
-    // fprintf(output, "%f\n", CutTSSThroughputResult);
-
-//---HiCuts---
-    cout << "Construct HiCuts" << endl;
-    HiCuts *HC = new HiCuts(8, 16, 4.0);
-    HC->ConstructClassifier(rule);
-    cout << "Construct HiCuts finish" << endl;
-
-//---HiCuts---Classification---
-    std::chrono::duration<double> sum_timeHC(0);
-
     for (int i = 0; i < trials; i++) {
         start = std::chrono::steady_clock::now();
         for (int j = 0; j < number_pkt; j++) {
-            matchid[j] = number_rule - 1 - HC->ClassifyAPacket(packets[j]);
+            matchid[j] = number_rule - 1 - CT->ClassifyAPacket(packets[j]);
         }
         end = std::chrono::steady_clock::now();
         elapsed_seconds = end - start;
-        sum_timeHC += elapsed_seconds;
+        sum_timeCS += elapsed_seconds;
         for (int j = 0; j < number_pkt; j++) {
             if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
                 match_miss++;
             }
         }
     }
-    double HiCutsThroughputResult = 1.0 / (sum_timeHC.count() * 1e6 / static_cast<double>(trials * packets.size()));
-    cout << match_miss << endl;
-    cout << "Throughput:" << HiCutsThroughputResult << "Mpps" << endl;
+    double CutTSSThroughputResult = 1 / (sum_timeCS.count() * 1e6 / double(trials * packets.size()));
+    fprintf(stdout, "match miss: %d\n", match_miss);
+    fprintf(stdout, "throughput: %f\n", CutTSSThroughputResult);
+    // fprintf(output, "%f\n", CutTSSThroughputResult);
+
+//---HiCuts---
+    // cout << "Construct HiCuts" << endl;
+    // HiCuts *HC = new HiCuts(8, 16, 4.0);
+    // HC->ConstructClassifier(rule);
+    // cout << "Construct HiCuts finish" << endl;
+
+//---HiCuts---Classification---
+    // std::chrono::duration<double> sum_timeHC(0);
+
+    // for (int i = 0; i < trials; i++) {
+    //     start = std::chrono::steady_clock::now();
+    //     for (int j = 0; j < number_pkt; j++) {
+    //         matchid[j] = number_rule - 1 - HC->ClassifyAPacket(packets[j]);
+    //     }
+    //     end = std::chrono::steady_clock::now();
+    //     elapsed_seconds = end - start;
+    //     sum_timeHC += elapsed_seconds;
+    //     for (int j = 0; j < number_pkt; j++) {
+    //         if (matchid[j] == -1 || packets[j][5] < matchid[j]) {
+    //             match_miss++;
+    //         }
+    //     }
+    // }
+    // double HiCutsThroughputResult = 1.0 / (sum_timeHC.count() * 1e6 / static_cast<double>(trials * packets.size()));
+    // cout << match_miss << endl;
+    // cout << "Throughput:" << HiCutsThroughputResult << "Mpps" << endl;
 
     return 0;
 }

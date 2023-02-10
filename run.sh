@@ -33,7 +33,7 @@
 # done
 
 # make && ./main -r $@ -e $@_trace
-cmd='make && ./main -r '$1' -e '$1'_trace'
+cmd='./main -r '$1' -e '$1'_trace'
 echo $cmd
 eval $cmd
 # make && ./main -r ./acl_1k -e ./acl_1k_trace

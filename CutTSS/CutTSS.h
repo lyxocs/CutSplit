@@ -15,6 +15,7 @@
 */
 
 #pragma once
+#include "../HiCuts/HiCuts.h"
 #include "../ElementaryClasses.h"
 #include "../OVS/TupleSpaceSearch.h"
 
@@ -32,7 +33,7 @@ struct CutTSSNode{
 
     vector<vector<unsigned int> > field;
 
-    PriorityTupleSpaceSearch *PSTSS;
+    PacketClassifier *PSTSS;
 	vector<CutTSSNode*> children;
 
 

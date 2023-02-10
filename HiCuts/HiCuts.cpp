@@ -20,7 +20,7 @@ void HiCuts::ConstructClassifier(const std::vector<Rule> &rules) {
         que.pop();
         vector<hc_node*> children = ConstructSingleHiCutsNode(node);
         for (auto iter : children) {
-            if (iter) {
+            if (iter && !iter->isLeaf) {
                 que.push(iter);
             }
         }
@@ -46,7 +46,21 @@ int HiCuts::ClassifyAPacket(const Packet &packet) {
 }
 
 int HiCuts::ClassifyAPacket(const Packet &packet, uint64_t &Query) {
-    return 0;
+    hc_node *node = root;
+    while (node && !node->isLeaf) {
+        int loc = (packet[node->cutDim] - node->range[node->cutDim][LowDim]) / node->rangePerCut;
+        // cout << node->children.size() << "\t" << loc << endl;
+        node = node->children[loc];
+    }
+    if (!node) {
+        return -1;
+    }
+    for (const Rule &rule : node->rules) {
+        if (rule.MatchesPacket(packet)) {
+            return rule.priority;
+        }
+    }
+    return -1;
 }
 
 void HiCuts::DeleteRule(const Rule &rule) {
@@ -78,6 +92,7 @@ vector<hc_node*> HiCuts::ConstructSingleHiCutsNode(hc_node *node) {
         node->isLeaf = true;
         return {};
     }
+    // cout << node->depth << "\t" << node->rules.size() << endl;
     vector<hc_node*> children;
 
     // Select Cut-Dim with max distinct point using heuristic algorithm
@@ -118,6 +133,10 @@ vector<hc_node*> HiCuts::ConstructSingleHiCutsNode(hc_node *node) {
             break;
         }
     }
+    if (cutNum == 1) {
+        node->isLeaf = true;
+        return {};
+    }
 
     // cutNum == 1
 
@@ -140,9 +159,21 @@ vector<hc_node*> HiCuts::ConstructSingleHiCutsNode(hc_node *node) {
         }
         if (!childRules.empty()) {
             children[i] = new hc_node(childRules, childRanges, node->depth + 1);
+            if (childRules.size() == node->rules.size()) {
+                children[i]->isLeaf = true;
+            }
         }
         // update tree
     }
+    // cout << "depth: " << node->depth << "\trule size: " << node->rules.size() << endl;
+    // for (auto iter : children) {
+    //     if (iter) {
+    //         cout << iter->rules.size() << "  ";
+    //     } else {
+    //         cout << "0  ";
+    //     }
+    // }
+    // cout << endl;
     node->cutDim = cutDim;
     node->rangePerCut = rangePerCut;
     node->children = children;
