@@ -292,11 +292,11 @@ CutTSSNode* CutTSS::ConstructCutTSSTrie(const vector<Rule> &rules, const vector<
             ptmp.ConstructClassifier(node->classifier);
             int numTuple = int(ptmp.NumTables());
             if(node->nrules <= (rtssleaf * numTuple)) {
-                node->nodeType = Linear;
+            node->nodeType = Linear;
 
-                statistics[totLeafRules][k] += node->nrules;
-                statistics[totLeaNode][k] ++;
-                statistics[worstLevel][k] = max(statistics[worstLevel][k], node->depth);
+            statistics[totLeafRules][k] += node->nrules;
+            statistics[totLeaNode][k] ++;
+            statistics[worstLevel][k] = max(statistics[worstLevel][k], node->depth);
             } else {
                 node->nodeType = TSS;
                 node->PSTSS = new PriorityTupleSpaceSearch();

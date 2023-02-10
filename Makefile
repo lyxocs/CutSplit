@@ -4,18 +4,20 @@ OVSPATH = OVS/
 PSPATH = PartitionSort/
 HSPATH = HyperSplit/
 GAPATH = GraphAnalyse/
-VPATH = $(CSPATH) $(CTPATH) $(OVSPATH) $(PSPATH) $(HSPATH) $(GAPATH)
+HCPATH = HiCuts/
+VPATH = $(CSPATH) $(CTPATH) $(OVSPATH) $(PSPATH) $(HSPATH) $(GAPATH) $(HCPATH)
 
 CPP=g++
 CFLAGS = -g -w -std=c++14 -fpermissive -O3 $(INCLUDE)
 
 # Targets needed to bring the executable up to date
 
-main: main.o CutSplit.o CutTSS.o OVS.o PartitionSort.o HyperSplit.o GA.o
+main: main.o CutSplit.o CutTSS.o OVS.o PartitionSort.o HyperSplit.o GA.o HiCuts.o
 	$(CPP) $(CFLAGS) -o main *.o $(LIBS)
 # ---------------------------------------------------------------------------------------------------------
 
-
+HiCuts.o: HiCuts.cpp HiCuts.h ElementaryClasses.h
+	$(CPP) $(CFLAGS) -c $(HCPATH)HiCuts.cpp
 
 HyperSplit.o: HyperSplit.h HyperSplit.cpp ElementaryClasses.h
 	$(CPP) $(CFLAGS) -c $(HSPATH)HyperSplit.cpp
